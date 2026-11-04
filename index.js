@@ -65,8 +65,70 @@ app.get('/productos', async (req, res) => {
   }
 });
 
+
+// --- RUTA PARA PROCESAR UNA VENTA ---
+app.post('/ventas', async (req, res) => {
+  // Obtenemos los datos de la venta desde el frontend
+  const { total, metodo_pago, productos } = req.body;
+  
+  // Obtenemos un cliente de la piscina de conexiones para hacer una transacción segura
+  const client = await pool.connect();
+
+  try {
+    // 1. Iniciamos la transacción (Si algo falla, todo se cancela)
+    await client.query('BEGIN');
+
+    // 2. Insertamos la venta principal (el ticket)
+    const ventaQuery = `
+      INSERT INTO ventas (total, metodo_pago) 
+      VALUES ($1, $2) RETURNING id;
+    `;
+    const ventaResult = await client.query(ventaQuery, [total, metodo_pago || 'efectivo']);
+    const ventaId = ventaResult.rows[0].id;
+
+    // 3. Recorremos los productos del carrito
+    for (const prod of productos) {
+      // a) Insertamos el detalle de lo que se vendió
+      const detalleQuery = `
+        INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario) 
+        VALUES ($1, $2, $3, $4);
+      `;
+      await client.query(detalleQuery, [ventaId, prod.id, prod.cantidad, prod.precio]);
+
+      // b) Restamos el stock del inventario
+      const stockQuery = `
+        UPDATE productos 
+        SET stock = stock - $1 
+        WHERE id = $2;
+      `;
+      await client.query(stockQuery, [prod.cantidad, prod.id]);
+    }
+
+    // 4. Si todo salió bien, confirmamos los cambios en la base de datos
+    await client.query('COMMIT');
+
+    res.status(201).json({ 
+      mensaje: 'Venta procesada con éxito', 
+      venta_id: ventaId 
+    });
+
+  } catch (error) {
+    // Si hubo un error (ej. se cayó la red), deshacemos todo
+    await client.query('ROLLBACK');
+    console.error("Error al procesar la venta:", error);
+    res.status(500).json({ error: 'Error interno al procesar la venta' });
+  } finally {
+    // Liberamos la conexión para que otros la puedan usar
+    client.release();
+  }
+});
+
 // Render asigna un puerto automáticamente
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
+
+
+
+

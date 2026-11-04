@@ -3,52 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Alexanders POS</title>
+    <title>Alexanders POS - Caja</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #333; }
-        .producto { border-bottom: 1px solid #ccc; padding: 10px 0; display: flex; justify-content: space-between; }
-        .btn { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        body { font-family: Arial, sans-serif; background-color: #e0e0e0; margin: 0; display: flex; height: 100vh; }
+        
+        /* Panel Izquierdo: Productos */
+        .productos-panel { flex: 2; padding: 20px; overflow-y: auto; }
+        h1 { color: #333; margin-bottom: 20px; }
+        .grid-productos { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+        .card-producto { background: white; padding: 15px; border-radius: 8px; text-align: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: transform 0.1s; }
+        .card-producto:active { transform: scale(0.95); }
+        .card-producto h3 { margin: 0 0 10px 0; font-size: 16px; color: #333; }
+        .card-producto .precio { color: #4CAF50; font-weight: bold; font-size: 18px; }
+        .card-producto .stock { color: #888; font-size: 12px; margin-top: 5px; }
+
+        /* Panel Derecho: Carrito */
+        .carrito-panel { flex: 1; background: white; padding: 20px; display: flex; flex-direction: column; box-shadow: -2px 0 10px rgba(0,0,0,0.1); }
+        .carrito-items { flex: 1; overflow-y: auto; margin-bottom: 20px; }
+        .item-carrito { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding: 10px 0; }
+        .total { font-size: 24px; font-weight: bold; text-align: right; border-top: 2px solid #333; padding-top: 10px; }
+        .btn-cobrar { background-color: #2196F3; color: white; padding: 15px; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; margin-top: 10px; font-weight: bold; }
+        .btn-cobrar:hover { background-color: #1976D2; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🛒 Alexanders POS - Inventario</h1>
-        <div id="lista-productos">
-            <!-- Aquí se cargarán los productos desde el backend -->
+
+    <!-- Panel Izquierdo: Inventario -->
+    <div class="productos-panel">
+        <h1>🛒 Alexanders POS</h1>
+        <div class="grid-productos" id="lista-productos">
             <p>Cargando productos...</p>
         </div>
     </div>
 
-    <script>
-        // Aquí conectaremos con tu backend de Render
-        const API_URL = 'https://pos-backend-u9j4.onrender.com/productos'; // ¡Cambia esto por tu URL!
+    <!-- Panel Derecho: Carrito de Cobro -->
+    <div class="carrito-panel">
+        <h2>Ticket Actual</h2>
+        <div class="carrito-items" id="carrito-items">
+            <p style="color: #888; text-align: center;">Toca un producto para agregarlo</p>
+        </div>
+        <div class="total" id="total">$0.00</div>
+        <button class="btn-cobrar" onclick="cobrar()">💳 COBRAR</button>
+    </div>
 
+    <script>
+        const API_URL = 'https://pos-backend-u9j4.onrender.com/productos'; // Tu URL real
+        let productosData = [];
+        let carrito = [];
+
+        // 1. Cargar los productos y hacerlos botones
         async function cargarProductos() {
             try {
                 const respuesta = await fetch(API_URL);
-                const productos = await respuesta.json();
+                productosData = await respuesta.json();
                 
                 const contenedor = document.getElementById('lista-productos');
-                contenedor.innerHTML = ''; // Limpiar el "Cargando..."
+                contenedor.innerHTML = ''; 
 
-                productos.forEach(prod => {
+                productosData.forEach(prod => {
                     const div = document.createElement('div');
-                    div.className = 'producto';
+                    div.className = 'card-producto';
+                    div.onclick = () => agregarAlCarrito(prod); // Al dar clic, se agrega al carrito
                     div.innerHTML = `
-                        <span><b>${prod.nombre}</b> - $${prod.precio}</span>
-                        <span>Stock: ${prod.stock}</span>
+                        <h3>${prod.nombre}</h3>
+                        <div class="precio">$${prod.precio}</div>
+                        <div class="stock">Stock: ${prod.stock}</div>
                     `;
                     contenedor.appendChild(div);
                 });
             } catch (error) {
-                console.error("Error al cargar productos:", error);
-                document.getElementById('lista-productos').innerHTML = '<p>Error al conectar con el servidor.</p>';
+                console.error("Error:", error);
             }
         }
 
-        // Ejecutar la función al cargar la página
+        // 2. Agregar producto al carrito
+        function agregarAlCarrito(producto) {
+            // Buscamos si ya está en el carrito
+            const existe = carrito.find(item => item.id === producto.id);
+            
+            if (existe) {
+                existe.cantidad++;
+            } else {
+                carrito.push({ ...producto, cantidad: 1 });
+            }
+            actualizarCarrito();
+        }
+
+        // 3. Dibujar el carrito en pantalla
+        function actualizarCarrito() {
+            const contenedor = document.getElementById('carrito-items');
+            const displayTotal = document.getElementById('total');
+            
+            if (carrito.length === 0) {
+                contenedor.innerHTML = '<p style="color: #888; text-align: center;">Toca un producto para agregarlo</p>';
+                displayTotal.innerText = '$0.00';
+                return;
+            }
+
+            contenedor.innerHTML = '';
+            let total = 0;
+
+            carrito.forEach((item, index) => {
+                const subtotal = item.precio * item.cantidad;
+                total += subtotal;
+
+                const div = document.createElement('div');
+                div.className = 'item-carrito';
+                div.innerHTML = `
+                    <div>
+                        <b>${item.cantidad}x</b> ${item.nombre}
+                    </div>
+                    <div>
+                        $${subtotal.toFixed(2)}
+                    </div>
+                `;
+                contenedor.appendChild(div);
+            });
+
+            displayTotal.innerText = `$${total.toFixed(2)}`;
+        }
+
+        // 4. Función para cobrar (Aquí luego conectaremos el backend)
+             // Función para cobrar (Conectada al backend)
+        async function cobrar() {
+            if (carrito.length === 0) {
+                alert("El carrito está vacío");
+                return;
+            }
+
+            // Calculamos el total
+            let total = 0;
+            carrito.forEach(item => {
+                total += item.precio * item.cantidad;
+            });
+
+            try {
+                // Bloqueamos el botón temporalmente para evitar dobles cobros
+                const btn = document.querySelector('.btn-cobrar');
+                btn.innerText = "Procesando...";
+                btn.disabled = true;
+
+                // Enviamos los datos a tu backend en Render
+                const respuesta = await fetch(`${API_URL.replace('/productos', '/ventas')}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        total: total,
+                        metodo_pago: 'efectivo', // Luego haremos que esto sea dinámico
+                        productos: carrito
+                    })
+                });
+
+                if (respuesta.ok) {
+                    alert(`¡Venta cobrada con éxito! Total: $${total.toFixed(2)}`);
+                    
+                    // Limpiamos el carrito
+                    carrito = [];
+                    actualizarCarrito();
+                    
+                    // Recargamos los productos para ver el stock actualizado
+                    cargarProductos();
+                } else {
+                    alert("Hubo un error al procesar la venta.");
+                }
+
+            } catch (error) {
+                console.error("Error de red:", error);
+                alert("Error al conectar con el servidor. Revisa tu conexión.");
+            } finally {
+                // Restauramos el botón
+                const btn = document.querySelector('.btn-cobrar');
+                btn.innerText = "💳 COBRAR";
+                btn.disabled = false;
+            }
+        }
+
+        // Ejecutar al cargar
         cargarProductos();
     </script>
 </body>
