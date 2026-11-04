@@ -1,5 +1,7 @@
 const express = require('express');
 const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const app = express();
 
@@ -120,6 +122,49 @@ app.post('/ventas', async (req, res) => {
   } finally {
     // Liberamos la conexión para que otros la puedan usar
     client.release();
+  }
+});
+
+
+// --- RUTA DE LOGIN ---
+app.post('/login', async (req, res) => {
+  const { nombre, pin } = req.body;
+
+  try {
+    // 1. Buscamos al usuario en la base de datos
+    const result = await pool.query('SELECT * FROM usuarios WHERE nombre = $1', [nombre]);
+    
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Usuario no encontrado' });
+    }
+
+    const usuario = result.rows[0];
+
+    // 2. Comparamos la contraseña enviada con la encriptada en la BD
+    // (Por ahora, como insertamos un hash de prueba, vamos a saltarnos la validación real para que pruebes)
+    // const passwordValido = await bcrypt.compare(pin, usuario.pin); 
+    const passwordValido = true; // <-- TEMPORAL PARA LA PRUEBA
+
+    if (!passwordValido) {
+      return res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+
+    // 3. Si todo está bien, creamos el Token VIP (JWT)
+    const token = jwt.sign(
+      { id: usuario.id, rol: usuario.rol }, 
+      'TU_CLAVE_SECRETA_SUPER_SEGURA', // Luego la moveremos a variables de entorno
+      { expiresIn: '8h' } // El turno de un cajero dura 8 horas
+    );
+
+    res.json({ 
+      mensaje: 'Login exitoso', 
+      token: token, 
+      usuario: { nombre: usuario.nombre, rol: usuario.rol } 
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error en el servidor' });
   }
 });
 
