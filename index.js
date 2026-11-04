@@ -1,10 +1,11 @@
 const express = require('express');
 const { Pool } = require('pg');
+const cors = require('cors');
 const app = express();
 
 // Esto permite que tu API reciba datos en formato JSON
 app.use(express.json());
-
+app.use(cors())
 // Configurar la conexión a la base de datos de Render
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,

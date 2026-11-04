@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alexanders POS</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        .producto { border-bottom: 1px solid #ccc; padding: 10px 0; display: flex; justify-content: space-between; }
+        .btn { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛒 Alexanders POS - Inventario</h1>
+        <div id="lista-productos">
+            <!-- Aquí se cargarán los productos desde el backend -->
+            <p>Cargando productos...</p>
+        </div>
+    </div>
+
+    <script>
+        // Aquí conectaremos con tu backend de Render
+        const API_URL = 'https://pos-backend-u9j4.onrender.com/productos'; // ¡Cambia esto por tu URL!
+
+        async function cargarProductos() {
+            try {
+                const respuesta = await fetch(API_URL);
+                const productos = await respuesta.json();
+                
+                const contenedor = document.getElementById('lista-productos');
+                contenedor.innerHTML = ''; // Limpiar el "Cargando..."
+
+                productos.forEach(prod => {
+                    const div = document.createElement('div');
+                    div.className = 'producto';
+                    div.innerHTML = `
+                        <span><b>${prod.nombre}</b> - $${prod.precio}</span>
+                        <span>Stock: ${prod.stock}</span>
+                    `;
+                    contenedor.appendChild(div);
+                });
+            } catch (error) {
+                console.error("Error al cargar productos:", error);
+                document.getElementById('lista-productos').innerHTML = '<p>Error al conectar con el servidor.</p>';
+            }
+        }
+
+        // Ejecutar la función al cargar la página
+        cargarProductos();
+    </script>
+</body>
+</html>
