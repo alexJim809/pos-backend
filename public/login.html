@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Alexanders POS</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #2196F3; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-box { background: white; padding: 30px; border-radius: 10px; width: 300px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        h2 { text-align: center; color: #333; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #45a049; }
+        #mensaje { text-align: center; color: red; margin-top: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h2>🔐 Iniciar Sesión</h2>
+        <input type="text" id="nombre" placeholder="Nombre de usuario">
+        <input type="password" id="pin" placeholder="PIN / Contraseña">
+        <button onclick="login()">Entrar</button>
+        <p id="mensaje"></p>
+    </div>
+
+    <script>
+        const API_URL = 'https://pos-backend-u9j4.onrender.com'; // Tu URL real
+
+        async function login() {
+            const nombre = document.getElementById('nombre').value;
+            const pin = document.getElementById('pin').value;
+            const mensaje = document.getElementById('mensaje');
+
+            if (!nombre || !pin) {
+                mensaje.innerText = "Llena todos los campos";
+                return;
+            }
+
+            try {
+                const respuesta = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre, pin })
+                });
+
+                const data = await respuesta.json();
+
+                if (respuesta.ok) {
+                    // Guardamos el Token VIP y el Nombre en la memoria del navegador
+                    localStorage.setItem('pos_token', data.token);
+                    localStorage.setItem('pos_usuario', data.usuario.nombre);
+                    
+                    // Lo mandamos a la pantalla de cobro
+                    window.location.href = 'index.html';
+                } else {
+                    mensaje.innerText = data.error || "Error al entrar";
+                }
+            } catch (error) {
+                mensaje.innerText = "Error de conexión con el servidor";
+            }
+        }
+    </script>
+</body>
+</html>

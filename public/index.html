@@ -47,6 +47,14 @@
     </div>
 
     <script>
+
+        // Verificar si hay un token guardado
+        const token = localStorage.getItem('pos_token');
+        if (!token) {
+            // Si no hay token, lo pateamos al login
+            window.location.href = 'login.html';
+        }
+
         const API_URL = 'https://pos-backend-u9j4.onrender.com/productos'; // Tu URL real
         let productosData = [];
         let carrito = [];
